@@ -15,9 +15,11 @@ import os
 
 import models.dcgan as dcgan
 import models.mlp as mlp
+from getData import *
+
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', required=True, help='cifar10 | lsun | imagenet | folder | lfw ')
+parser.add_argument('--dataset', default='', help='cifar10 | lsun | imagenet | folder | lfw ')
 parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
@@ -43,6 +45,13 @@ parser.add_argument('--mlp_D', action='store_true', help='use MLP for D')
 parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
 parser.add_argument('--experiment', default=None, help='Where to store samples and models')
 parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
+parser.add_argument('--loadSize_1', type=int, default=256, help='scale images to this size')
+parser.add_argument('--loadSize_2', type=int, default=256, help='scale images to this size')
+parser.add_argument('--fineSize_1', type=int, default=256, help='then crop to this size')
+parser.add_argument('--fineSize_2', type=int, default=256, help='then crop to this size')
+parser.add_argument('--train', type=int, default=256, help='then crop to this size')
+parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|scale_width_and_crop]')
+
 opt = parser.parse_args()
 print(opt)
 
@@ -86,6 +95,9 @@ elif opt.dataset == 'cifar10':
                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                            ])
     )
+else:
+    dataset = Dataset(opt)
+
 #assert dataset
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batchSize,
                                          shuffle=True, num_workers=int(opt.workers))
@@ -177,7 +189,9 @@ for epoch in range(opt.niter):
             i += 1
 
             # train with real
-            real_cpu, _ = data
+            real_cpu = data
+            # import pdb
+            # pdb.set_trace()
             netD.zero_grad()
             batch_size = real_cpu.size(0)
 

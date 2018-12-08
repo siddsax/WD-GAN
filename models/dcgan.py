@@ -50,6 +50,7 @@ class DCGAN_D(nn.Module):
             output = self.main(input)
             
         output = output.mean(0)
+        #import pdb;pdb.set_trace()
         return output.view(1)
 
 class DCGAN_G(nn.Module):

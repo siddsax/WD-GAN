@@ -75,5 +75,5 @@ class Dataset(data.Dataset):
 
         B = B[:, h_offset:h_offset + self.opt.fineSize_2, w_offset:w_offset + self.opt.fineSize_1]
 
-        return B
+        return B, 0
 

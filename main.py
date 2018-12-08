@@ -23,7 +23,7 @@ parser.add_argument('--dataset', default='', help='cifar10 | lsun | imagenet | f
 parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
-parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
+parser.add_argument('--imageSize', type=int, default=256, help='the height / width of the input image to network')
 parser.add_argument('--nc', type=int, default=3, help='input image channels')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
@@ -189,9 +189,9 @@ for epoch in range(opt.niter):
             i += 1
 
             # train with real
-            real_cpu = data
-            # import pdb
-            # pdb.set_trace()
+            real_cpu, _ = data
+            #import pdb
+            #pdb.set_trace()
             netD.zero_grad()
             batch_size = real_cpu.size(0)
 
@@ -232,7 +232,7 @@ for epoch in range(opt.niter):
         print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
             % (epoch, opt.niter, i, len(dataloader), gen_iterations,
             errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
-        if gen_iterations % 500 == 0:
+        if gen_iterations % 1 == 0:
             real_cpu = real_cpu.mul(0.5).add(0.5)
             vutils.save_image(real_cpu, '{0}/real_samples.png'.format(opt.experiment))
             fake = netG(Variable(fixed_noise, volatile=True))

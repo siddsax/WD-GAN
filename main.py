@@ -176,83 +176,96 @@ else:
     optimizerG = optim.RMSprop(netG.parameters(), lr = opt.lrG)
 
 gen_iterations = 0
-for epoch in range(opt.niter):
-    data_iter = iter(dataloader)
-    i = 0
-    while i < len(dataloader):
-        ############################
-        # (1) Update D network
-        ###########################
-        for p in netD.parameters(): # reset requires_grad
-            p.requires_grad = True # they are set to False below in netG update
 
-        # train the discriminator Diters times
-        if gen_iterations < 25 or gen_iterations % 500 == 0:
-            Diters = 100
-        else:
-            Diters = opt.Diters
-        j = 0
-        while j < Diters and i < len(dataloader):
-            j += 1
+if opt.train:
+    for epoch in range(opt.niter):
+        data_iter = iter(dataloader)
+        i = 0
+        while i < len(dataloader):
+            ############################
+            # (1) Update D network
+            ###########################
+            for p in netD.parameters(): # reset requires_grad
+                p.requires_grad = True # they are set to False below in netG update
 
-            # clamp parameters to a cube
+            # train the discriminator Diters times
+            if gen_iterations < 25 or gen_iterations % 500 == 0:
+                Diters = 100
+            else:
+                Diters = opt.Diters
+            j = 0
+            while j < Diters and i < len(dataloader):
+                j += 1
+
+                # clamp parameters to a cube
+                for p in netD.parameters():
+                    p.data.clamp_(opt.clamp_lower, opt.clamp_upper)
+
+                data = data_iter.next()
+                i += 1
+
+                # train with real
+                real_cpu, _ = data
+                #import pdb
+                #pdb.set_trace()
+                netD.zero_grad()
+                batch_size = real_cpu.size(0)
+
+                if opt.cuda:
+                    real_cpu = real_cpu.cuda()
+                input.resize_as_(real_cpu).copy_(real_cpu)
+                inputv = Variable(input)
+
+                errD_real = netD(inputv)
+                errD_real.backward(one)
+
+                # train with fake
+                noise.resize_(opt.batchSize, nz, 1, 1).normal_(0, 1)
+                noisev = Variable(noise, volatile = True) # totally freeze netG
+                fake = Variable(netG(noisev).data)
+                inputv = fake
+                errD_fake = netD(inputv)
+                errD_fake.backward(mone)
+                errD = errD_real - errD_fake
+                optimizerD.step()
+
+            ############################
+            # (2) Update G network
+            ###########################
             for p in netD.parameters():
-                p.data.clamp_(opt.clamp_lower, opt.clamp_upper)
-
-            data = data_iter.next()
-            i += 1
-
-            # train with real
-            real_cpu, _ = data
-            #import pdb
-            #pdb.set_trace()
-            netD.zero_grad()
-            batch_size = real_cpu.size(0)
-
-            if opt.cuda:
-                real_cpu = real_cpu.cuda()
-            input.resize_as_(real_cpu).copy_(real_cpu)
-            inputv = Variable(input)
-
-            errD_real = netD(inputv)
-            errD_real.backward(one)
-
-            # train with fake
+                p.requires_grad = False # to avoid computation
+            netG.zero_grad()
+            # in case our last batch was the tail batch of the dataloader,
+            # make sure we feed a full batch of noise
             noise.resize_(opt.batchSize, nz, 1, 1).normal_(0, 1)
-            noisev = Variable(noise, volatile = True) # totally freeze netG
-            fake = Variable(netG(noisev).data)
-            inputv = fake
-            errD_fake = netD(inputv)
-            errD_fake.backward(mone)
-            errD = errD_real - errD_fake
-            optimizerD.step()
+            noisev = Variable(noise)
+            fake = netG(noisev)
+            errG = netD(fake)
+            errG.backward(one)
+            optimizerG.step()
+            gen_iterations += 1
 
-        ############################
-        # (2) Update G network
-        ###########################
-        for p in netD.parameters():
-            p.requires_grad = False # to avoid computation
-        netG.zero_grad()
-        # in case our last batch was the tail batch of the dataloader,
-        # make sure we feed a full batch of noise
-        noise.resize_(opt.batchSize, nz, 1, 1).normal_(0, 1)
-        noisev = Variable(noise)
-        fake = netG(noisev)
-        errG = netD(fake)
-        errG.backward(one)
-        optimizerG.step()
-        gen_iterations += 1
+            print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
+                % (epoch, opt.niter, i, len(dataloader), gen_iterations,
+                errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
+            if gen_iterations % 1 == 0:
+                real_cpu = real_cpu.mul(0.5).add(0.5)
+                vutils.save_image(real_cpu, '{0}/real_samples.png'.format(opt.experiment))
+                fake = netG(Variable(fixed_noise, volatile=True))
+                fake.data = fake.data.mul(0.5).add(0.5)
+                vutils.save_image(fake.data, '{0}/fake_samples_{1}.png'.format(opt.experiment, gen_iterations))
 
-        print('[%d/%d][%d/%d][%d] Loss_D: %f Loss_G: %f Loss_D_real: %f Loss_D_fake %f'
-            % (epoch, opt.niter, i, len(dataloader), gen_iterations,
-            errD.data[0], errG.data[0], errD_real.data[0], errD_fake.data[0]))
-        if gen_iterations % 1 == 0:
-            real_cpu = real_cpu.mul(0.5).add(0.5)
-            vutils.save_image(real_cpu, '{0}/real_samples.png'.format(opt.experiment))
-            fake = netG(Variable(fixed_noise, volatile=True))
-            fake.data = fake.data.mul(0.5).add(0.5)
-            vutils.save_image(fake.data, '{0}/fake_samples_{1}.png'.format(opt.experiment, gen_iterations))
+        # do checkpointing
+        torch.save(netG.state_dict(), '{0}/netG_epoch_{1}.pth'.format(opt.experiment, epoch))
+        torch.save(netD.state_dict(), '{0}/netD_epoch_{1}.pth'.format(opt.experiment, epoch))
 
-    # do checkpointing
-    torch.save(netG.state_dict(), '{0}/netG_epoch_{1}.pth'.format(opt.experiment, epoch))
-    torch.save(netD.state_dict(), '{0}/netD_epoch_{1}.pth'.format(opt.experiment, epoch))
+    else:
+        errTotal = 0.0
+        for i, (data, _) in enumerate(dataloader):
+            errG = netD(data).data[0]
+            print("Data Point {} Error {}".format(i, errG))
+
+        errTotal = errTotal/len(dataloader)
+        print("Error {}".format(errTotal))
+        
+

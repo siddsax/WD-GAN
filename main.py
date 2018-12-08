@@ -127,7 +127,14 @@ else:
 
 netG.apply(weights_init)
 if opt.netG != '': # load checkpoint if needed
-    netG.load_state_dict(torch.load(opt.netG))
+    state_dict = torch.load(opt.netG, map_location=lambda storage, loc: storage)
+    #del state_dict['main.pyramid-128-batchnorm.num_batches_tracked']
+    #del state_dict['main.pyramid-256-batchnorm.num_batches_tracked']
+    #del state_dict['main.pyramid-512-batchnorm.num_batches_tracked']
+    #del state_dict['main.pyramid-1024-batchnorm.num_batches_tracked']
+    #del state_dict['main.pyramid-2048-batchnorm.num_batches_tracked']
+
+    netG.load_state_dict(state_dict)
 print(netG)
 
 if opt.mlp_D:
@@ -137,7 +144,14 @@ else:
     netD.apply(weights_init)
 
 if opt.netD != '':
-    netD.load_state_dict(torch.load(opt.netD))
+    state_dict = torch.load(opt.netD, map_location=lambda storage, loc: storage)
+    del state_dict['main.pyramid-128-batchnorm.num_batches_tracked']
+    del state_dict['main.pyramid-256-batchnorm.num_batches_tracked']
+    del state_dict['main.pyramid-512-batchnorm.num_batches_tracked']
+    del state_dict['main.pyramid-1024-batchnorm.num_batches_tracked']
+    del state_dict['main.pyramid-2048-batchnorm.num_batches_tracked']
+
+    netD.load_state_dict(state_dict)
 print(netD)
 
 input = torch.FloatTensor(opt.batchSize, 3, opt.imageSize, opt.imageSize)
